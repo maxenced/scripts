@@ -1,0 +1,4 @@
+Just some useful (for me) scripts.
+
+sshall.rb : check ssh connectivity of a list of hosts and display state in a nice table
+generate_screens.sh : generate scree, templates for zabbix
