@@ -18,7 +18,7 @@ def usage
     You can pass some parameters as environment variable :
       * THREADS : number of concurrent threads to check the hosts (default 1)
       * COLS : number of colons (default 3)
-      * MAXWAIT : time to wait before exiting (default 300, in second)
+      * MAXWAIT : time to wait before exiting (default 300, in second), set it to -1 to loop endlessly
       * SSHUSER : ssh user (default root)
       * PASS : ssh user password (will only be used for hosts, not for the gateway (default bonfire)
       * GWUSER : ssh user for the gateway (default root)
@@ -44,7 +44,7 @@ ip_list = (ip_begin..ip_end)
 b = ip_begin.to_s.split('.')
 e = ip_end.to_s.split('.')
 keep_bytes = 3
-3.times { |i| keep_bytes = keep_bytes - 1 if b[i] = e [i] }
+3.times { |i| keep_bytes -= 1 if b[i] == e [i] }
 
 ip_list.each do |ip|
     result[ip.to_s] = "#{ip.to_s.split('.')[3 - keep_bytes..3].join('.').red}"
@@ -61,14 +61,14 @@ proxy = sshgateway != nil ? Net::SSH::Proxy::Command.new("ssh #{sshgatewayuser}@
 batch = GirlFriday::Batch.new(nil, :size => threads) do |payload|
     _host = payload[:host].split('.')[3 - keep_bytes..3].join('.')
     begin
-        Net::SSH.start(payload[:host], sshuser, :password => sshpass, :proxy => proxy , :timeout => 2 ) do |session|
+        Net::SSH.start(payload[:host], sshuser, :password => sshpass, :proxy => proxy , :timeout => 5 ) do |session|
             r = session.exec!('uptime')
             result[payload[:host]] = "\033[32m#{_host}\033[0m"
         end
-    rescue Timeout::Error  
+    rescue Timeout::Error, Net::SSH::Disconnect 
         result[payload[:host]] = "\033[31m#{_host}\033[0m"
     rescue => e
-        p "Something happen during connection to #{payload[:host]}, error is : #{e.message}"
+        p "Something happen during connection to #{payload[:host]}, error is : #{e.message} #{e.inspect}"
     end
 end
 
@@ -78,9 +78,9 @@ ip_list.each do |ip|
     })
 end
 
-#Thread.new {
+Thread.new {
     start = Time.now()
-    while Time.now() - maxwait < start 
+    while (Time.now() - maxwait < start) or maxwait < 0
         rows = []
         chunk_array(result, nbcols).each do |c|
             rows << [""] + c.values + [""] * (nbcols - c.length)
@@ -93,6 +93,6 @@ end
         p table
         sleep(2)
     end
-#}
+}
 
 batch.results
